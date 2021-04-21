@@ -50,9 +50,8 @@ UART_HandleTypeDef huart2;
 uint32_t ADCData[4] = {0};
 uint32_t RandomTime = 0;
 uint32_t TimeStamp = 0;
-uint32_t TimeStamp2 = 0;
-uint32_t TimeRelease = 0;
-uint8_t count = 0;
+uint32_t ReleaseTime = 0;
+uint32_t count = 0;
 
 /* USER CODE END PV */
 
@@ -114,13 +113,13 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
-	  RandomTime = (1000 + ((22695477 * ADCData[0]) + ADCData[1]) % 10000);		// สุ่มกำหนดระยะเวลาที่ไฟจะกลับมาติด
 	  if(count == 1)
 	  {
 		  if(HAL_GetTick() - TimeStamp >= RandomTime)
 		  {
-			  HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);						// ไฟติดจากการสุ่มเวลา
+			  HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);							// ไฟติดจากการสุ่มเวลา
 			  TimeStamp = HAL_GetTick();
+			  count = 2;
 		  }
 	  }
   }
@@ -210,7 +209,7 @@ static void MX_ADC1_Init(void)
   */
   sConfig.Channel = ADC_CHANNEL_0;
   sConfig.Rank = 1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
+  sConfig.SamplingTime = ADC_SAMPLETIME_480CYCLES;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -310,7 +309,7 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);						// Set LED-ON at start
+  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);								// Set LED-ON at start
 
   /*Configure GPIO pin : B1_Pin */
   GPIO_InitStruct.Pin = B1_Pin;
@@ -342,20 +341,25 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
 	if(GPIO_Pin == GPIO_PIN_13)
 	{
-		count += 1;
-		if(count == 1)
+		if(count == 0)
 		{
-			HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);							// ไฟดับหลังจากกดปุ่ม
+			RandomTime = (1000 + ((22695477 * ADCData[0]) + ADCData[1]) % 10000);		// สุ่มกำหนดระยะเวลาที่ไฟจะกลับมาติด
+			HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);									// ไฟดับหลังจากกดปุ่ม
+			TimeStamp = HAL_GetTick();
+			ReleaseTime = 0;
+			count = 1;
 		}
 		else if(count == 2)
 		{
-			TimeRelease = HAL_GetTick() - TimeStamp;							// ระยะเวลาที่ใช้ = เวลาตอนปล่อย - เวลาตอนครบระยะสุ่ม
+			ReleaseTime = HAL_GetTick() - TimeStamp;									// ระยะเวลาที่ใช้ = เวลาตอนปล่อย - เวลาตอนครบระยะสุ่ม
 			count = 0;
 		}
-		else
+		else if(count == 1)																// กรณีปล่อยก่อนไฟติดให้กลับไปนับใหม่+ไฟติดเหมือนเดิม
 		{
+			HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
 			count = 0;
 		}
+
 	}
 }
 /* USER CODE END 4 */
